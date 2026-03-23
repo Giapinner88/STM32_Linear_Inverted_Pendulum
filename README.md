@@ -1,100 +1,112 @@
-# pid-invertedpendulum
+# STM32 Linear Inverted Pendulum — Custom Controller Platform
 
-This repository contains code to accompany an "Inverted Pendulum" based on an STM32F103C8 controller I bought on AliExpress.
+A hardware abstraction layer for the **Wheeltec IP570 linear inverted pendulum**, extracted and ported to STM32CubeIDE (HAL) as a clean foundation for implementing custom control algorithms.
 
-- :heavy_check_mark: The product was described as being provided with source code
-- :x: It was not
-- :heavy_check_mark: After contacting the seller a few times, they did email me a download
-- :x: The download was a zip archive consisting of a load of various projects, unsorted files, and various directories, in Chinese
-- :heavy_check_mark: I was able to work out which sections of the download related to the STM32 source code running on the device
-- :x: I'm not that familiar with STM32 project structure
-- :heavy_check_mark: The code was commented
-- :x: The comments were in Chinese
-- :heavy_check_mark: Google Translate exists! And I know some Chinese programmers
-- :x: Even when translated, the comments weren't always accurate  
+The original manufacturer firmware (Wheeltec / MiniBalance) came bundled with a proprietary PID controller in a Keil-only project. This repository strips away the control logic entirely and replaces it with a buildable, open STM32CubeIDE project — leaving the control layer as a blank slate where any algorithm can be dropped in.
 
-So, I basically ending up having to reverse-engineer the source code from a combination of how the product actually behaved, what the product description said it should do, what the translated Chinese comments said it did, and what the code actually did. And this repository is the result.
+Inspired by [playfultechnology/pid-invertedpendulum](https://github.com/playfultechnology/pid-invertedpendulum), which went through a similar reverse-engineering process on the same hardware.
+
+---
 
 ## Hardware
-The same pendulum (and other similar PID control robots) is available from various sellers: I purchased from "HansaRobot" but the packaging was labelled as "Wheeltec", while the source code was commented as "MiniBalance". I'm not sure if these are all the same company, whether they are distributors, or clones of each other, but I'm fairly sure the hardware is identical and looks like this.
-<img src="images/Inverted_pendulum.jpg">
 
-| Controller Top Layer | Controller Bottom Layer |
-| --- | --- |
-| <img src="images/Top_board.jpg" height="200"> | <img src="images/Bottom_board.jpg" width="200"> |
+- **Platform:** Wheeltec IP570 linear inverted pendulum
+- **MCU:** STM32F103C8 (ARM Cortex-M3, 72 MHz)
+- **Angle sensor:** WDD35D4-5K rotary potentiometer → ADC (replaces IMU entirely)
+- **Position sensor:** Linear encoder via TIM4 quadrature input
+- **Actuator:** DC motor with H-bridge, driven by 10 kHz PWM
+- **Display:** 128×64 OLED (I2C)
+- **Programmer:** ST-Link v2
 
-The components used are:
- - [WDD35D4-5K Angular Encoder](https://www.ebay.co.uk/itm/263908784245)
- - [MG513P2012V Motor](https://www.aliexpress.com/item/4000996252848.html)
+---
 
-## Calibration
-Before use, the system should be calibrated as follows:
- 1. Ensure the pendulum is stationary and hanging vertically downward
- 2. Loosen the top screw connecting the pendulum to the angular encoder 
- 3. Twist the central knob (located in the middle of the three screws) to turn the encoder until the ADC value reported on the OLED screen is between 1010 and 1030 (ideal value is 1024)
- 4. Tighten the topmost screw to secure the pendulum to the encoder again
+## What this repo contains
 
-## Method of Operation
-There are six buttons on the control unit - two on the top (labelled RESET, USER), two on the front (labelled X, M), and two on the back (labelled +/-), with functions as follows:
- - Press RESET button : Resets to default state
- - Single Click USER button : Start / Stop balancing
- - ( Double Click USER : Reverse Direction Balance according to code, but I can't see how you'd be able to do this)
- - Long Press X : Toggle Auto-Balance Mode
- - Press M : Cycle between selected PID parameter (indicated by Y on the OLED screen)
- - Long Press M : Bring up help text
- - +/- : Increase/decrease selected PID parameter by the corresponding A value
+The project under `project/` is a STM32CubeIDE HAL project with all hardware drivers configured and ready. It compiles and flashes cleanly. The control loop itself (`User/control/`) is intentionally left empty — that is where custom algorithms go.
 
-When Auto-Balance is selected, the Blue LED L2 will light up. 
-Before continuing, **ensure the trolley is located all the way to the left-hand side** (i.e the encoder value P is shown close to 10000).
-Starting balancing in this mode will swing the pendulum back and forward until it reaches a point when:
- - the position is not close to the edge
- - the angle is near the balance point
- - the angular velocity is close to 0
-When this position is achieved three times consecutively, the code sets PID parameters based on that as the target point. 
- 
-The pendulum will _stop_ attempting to balance whenever any of the conditions in the Turn_Off() method of BALANCE\CONTROL\control.c method are met:
- - Voltage falls below 700
- - Flag_Stop = 1
- - Angle_Balance differs from balance point by > 500
+```
+project/
+├── Core/
+│   ├── Src/
+│   │   ├── main.c              # entry point, hardware init
+│   │   ├── adc.c               # angle sensor (WDD35D4 potentiometer)
+│   │   ├── tim.c               # PWM output + 5 ms timer interrupt
+│   │   ├── usart.c             # UART debug output
+│   │   ├── gpio.c              # buttons, LEDs
+│   │   ├── i2c.c               # OLED communication
+│   │   └── stm32f1xx_it.c      # interrupt handlers
+│   ├── Inc/                    # corresponding headers
+│   └── Startup/
+│       └── startup_stm32f103c8tx.s
+├── Hardware/
+│   └── OLED/                   # oled.c, oled.h, oledfont.h
+├── System/
+│   └── delay/                  # delay.c, delay.h
+├── User/
+│   └── show/                   # OLED display layout (show.c, show.h)
+├── Drivers/
+│   ├── STM32F1xx_HAL_Driver/   # ST HAL library
+│   └── CMSIS/                  # ARM core headers
+├── InvertedPendulum.ioc        # STM32CubeMX configuration
+└── STM32F103C8TX_FLASH.ld      # linker script
+```
 
-## Display
-OLED readout shows values as follows:
- - B-KP, B-KD: Balance KP, KD PID control values
- - P-KP, P-KD: Position KP, KD PID control values
- - A: Amplitudes, i.e. the amount by which the corresponding PID parameter will be adjusted each time +/- is pressed
- - VOL: Voltage
- - T: Target Position
- - P: Actual Linear Encoder Reading (5,850 at extreme right, 10,000 at extreme left)
- - ADC: Rotary Encoder Reading  (0 when pointing left, increasing anti-clockwise to 4096 after full rotation. So 1024=down, 2048=right, 3072=up)
- - Note that the selected PID parameter that will be edited by the +/- buttons is indicated by a Y, other parameters have an N
-![](images/OLED_output.png)
+The 5 ms control interrupt fires in `stm32f1xx_it.c`. All sensor reads and motor output happen there. Reading the angle and position, and writing the PWM, requires only standard HAL calls:
 
-## Modifying the Software
-While the above describes the operation of the pendulum as supplied, the main attraction for me was the fact that the source code of the controller could be reprogrammed. It uses an STM32F103C8 board based on an ARM processor, somewhat similar to an Arduino/ESP, except designed more for industrial control. 
+```c
+// Read pendulum angle (ADC, 12-bit, 0–4095)
+HAL_ADC_Start(&hadc1);
+HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+uint32_t angle_raw = HAL_ADC_GetValue(&hadc1);
 
-### Using Keil
-The source code comes supplied as a Keil project, so to compile and upload the supplied code to the board, you will need:
-- The [Keil MDK and uVision IDE](https://www.keil.com/demo/eval/arm.htm) - you will need to register with an email address to access the download (current v5.36, 912Mb)
-- [ST-Link](https://www.ebay.co.uk/itm/313809775705) - a USB dongle that acts as a debugger and uploader to the STM32 board
-- The [ST-Link Driver](https://www.st.com/content/st_com/en/products/development-tools/software-development-tools/stm32-software-development-tools/stm32-utilities/stsw-link009.html#get-software) for the above (current v.2.0.2, 5Mb)
+// Read cart position (quadrature encoder, TIM4)
+int32_t position = (int32_t)__HAL_TIM_GET_COUNTER(&htim4);
 
-### Using STMCube
-Keil has a limitation of 32kB in the free version. If you want to adapt the supplied source code or create your own STM32 projects without this restriction, you may prefer to use an alternative IDE instead.
-- [STMCube32IDE](https://www.st.com/en/development-tools/stm32cubeide.html) is the completely free, "official" IDE from ST. It has all the same functionality as Keil, but uses a slightly different project structure and settings, so you can't just directly port the Keil project across (I tried but have been unsuccessful so far).
-- STMCube32IDE has an inbuilt option to automatically upload to the STM32 board after compilation but, for some reason, it wouldn't work for me. So after compiling, I manually uploaded the .hex file using [STMCube32Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html) instead.
-- You may also want to download [STM32CubeMx](https://www.st.com/en/development-tools/stm32cubemx.html#overview) which is a sort of wizard/template configuration tool. You tell it the particular STM32 board you're targetting and the peripherals you want to use, and it will create a basic template project that you can load in uVision, and already has the necessary boilerplate configuration code. Again, you need to register with an email address to access the download link (current v6.4, 345Mb)
+// Set motor PWM (TIM3 CH1/CH2, range ±7199)
+__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pwm_value);
+```
 
-A few additional notes on using STMCube:
-- We need to be able to reference the .h header files from the .c source code files (i.e so that the lines #include "mylibrary.h" can find mylibrary.h). To do that, right click on folders in the Project Explorer and select _Add/Remove Include Paths_ for any folder that contains an .h file
-- We also need to tell the linker where to find the compiled source code files. To do *that*, go
-_Project -> Properties -> C/C++ General -> Paths and Symbols -> Source Location_ to add any folders containing source files Apply and Close (note that you do not need to go into child folders - top level folder is sufficient).
-- It seems that a lot of the source code makes use of "non-standard" datatype aliases. i.e. u8, u16 instead of uint8_t and unit16_t. I do see typedefs for them in one of the include files, but that's one of the includes that's giving me errors..... I'm not sure what value they have compared to using C standard types - is that a Keil thing perhaps?
-- To compile the .hex file that can be uploaded to the board with STMVube32Programmer, go _Project -> Properties -> C/C++ Build -> Settings -> MCU Post Build Outputs_ Check "Convert to Intel Hex file"
+---
 
+## Sensor calibration
 
-## Code Structure
- - The main() program loop is contained in USER\Minibalance.c, but you'll find it quite sparse - it begins by initialising all the hardware and then enters an infinite while() loop whose only function appears to be to update the display.
- - The reason is that the control loop is actually contained in the TIM1_UP_IRQHandler() function defined in BALANCE\CONTROL\control.c, which is an interrupt service routine called every 5ms.
- - Input functionality is defined in the Key() method of BALANCE\CONTROL\control.c
- - Some additional input functions are defined in the EXTI15_10_IRQHandler() method contained in HARDWARE\EXTI\exti.c 
- - OLED display is defined in BALANCE\show\show.c
+Before running any control algorithm, the angle sensor must be calibrated so that the pendulum hanging straight down reads a known ADC value (~1024).
+
+1. Power on the board and let it sit idle
+2. Hold the pendulum pointing straight down
+3. Loosen the top screw connecting the pendulum rod to the encoder shaft
+4. Slowly twist the encoder knob until the ADC value on the OLED reads between 1010–1030 (target: 1024)
+5. Retighten the screw
+
+The OLED screen shows live sensor readings during this process — ADC (angle), P (position), VOL (battery voltage).
+
+---
+
+## Getting started
+
+**Requirements:**
+- [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html) (free, no size limit)
+- ST-Link v2 USB programmer
+- ST-Link driver
+
+**Steps:**
+1. Clone this repo
+2. Open STM32CubeIDE → `File > Open Projects from File System` → select the `project/` folder
+3. Add your control algorithm in `User/control/control.c` (create the file)
+4. Build (`Ctrl+B`) and flash via ST-Link
+
+---
+
+## Algorithms planned / in progress
+
+- [ ] PD balance + position control (baseline)
+- [ ] LQR full-state feedback
+- [ ] Lyapunov-stable neural control (main research goal)
+
+---
+
+## Acknowledgements
+
+Hardware documentation and reverse-engineering notes from [playfultechnology/pid-invertedpendulum](https://github.com/playfultechnology/pid-invertedpendulum) were essential in understanding how this board actually works — particularly the ADC-based angle sensing, the calibration procedure, and the 5 ms interrupt-driven control loop structure.
+
+Original firmware by Wheeltec / MiniBalance. HAL port and project restructuring by this repository's author.
