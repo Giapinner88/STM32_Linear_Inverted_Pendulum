@@ -86,6 +86,26 @@ The OLED screen shows live sensor readings during this process — ADC (angle), 
 3. Upload firmware: `pio run -t upload`
 4. Edit your control algorithm in `lib/show/src/control.c`
 
+### Phase 2 Serial Link Test (PC <-> STM32)
+
+Use the binary protocol bridge script to validate telemetry + command packets:
+
+```bash
+python3 tools/serial_link.py --port /dev/ttyUSB0 --mode 0
+```
+
+Send a sine-wave command (test in `SWINGUP` mode):
+
+```bash
+python3 tools/serial_link.py --port /dev/ttyUSB0 --mode 1 --sine --amp 0.25 --freq 0.5
+```
+
+Install dependency once:
+
+```bash
+python3 -m pip install pyserial
+```
+
 **Optional (CubeMX/CubeIDE reference):**
 - Original CubeMX metadata and linker script are kept in `project/` for pin/peripheral regeneration and reference.
 

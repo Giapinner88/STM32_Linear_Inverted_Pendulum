@@ -127,7 +127,7 @@ The OLED is wired to both a software bit-bang SPI and I2C1 (hardware). Check `ol
 | TIM4  | Encoder TI12 | — | Linear encoder on PB6/PB7 |
 | SysTick | — | — | HAL timebase (1 ms) |
 
----
+---i gian thực để loại trừ
 
 ## NVIC interrupt priorities (priority group 2)
 
@@ -150,3 +150,138 @@ HSE (8 MHz crystal)
         ├── APB1 = 36 MHz  → TIM3, TIM4, I2C1
         └── ADC  = 12 MHz  (APB2 / 6)
 ```
+
+---
+
+## Hardware specifications
+
+### System overview
+
+| Parameter | Value |
+|-----------|-------|
+| Product name | Wheeltec IP570 linear inverted pendulum |
+| MCU | STM32F103C8T6 — ARM Cortex-M3, 72 MHz, 64 KB flash, 20 KB SRAM |
+| Supply voltage | 12 V DC (battery pack) |
+| Control cycle | 5 ms (200 Hz), driven by TIM1 interrupt |
+| Motor driver | TB6612FNG (integrated on board), VM max 15 V, output avg 1.2 A, peak 3.2 A |
+| Communication | USART1 at 128000 baud — program download via MicroUSB, DataScope waveform display |
+| Display | 0.96" OLED 128×64 (I2C / bit-bang SPI) |
+
+---
+
+### Motor — MG513P20 12V
+
+DC brushed gear motor with Hall encoder.
+
+| Parameter | Value |
+|-----------|-------|
+| Model | MG513P20 (P = plastic gearbox, 20 = reduction ratio 1:20) |
+| Rated voltage | 12 V |
+| No-load speed (output shaft) | ~550 RPM @ 12 V |
+| Reduction ratio | 1 : 20 |
+| Hall encoder lines | 13 lines per motor revolution |
+| Quadrature counts per output shaft revolution | 13 × 4 × 20 = **1040 counts/rev** (4× counting, TIM4 encoder mode TI12) |
+| Encoder supply voltage | 5 V |
+| Output shaft diameter | 6 mm, D-type flat |
+| Gearbox length | 23 mm |
+| Motor diameter | 37 mm |
+
+> Source: comment in `control.c` — *"产品使用的是13线霍尔传感器电机，20减速比，程序上用的是4倍频，电机转一圈编码器上的数值是13×4×20 = 1040"*
+
+---
+
+### Angle sensor — WDD35D4-5K
+
+Single-turn conductive plastic rotary potentiometer, used as angular displacement sensor for the pendulum rod.
+
+| Parameter | Value |
+|-----------|-------|
+| Model | WDD35D4-5K |
+| Resistance | 5 kΩ |
+| Resistance tolerance | ±15% |
+| Electrical rotation range | 345° ± 2° |
+| Mechanical rotation | 360° continuous |
+| Linearity (independent) | 0.1% ~ 1% (model-dependent) |
+| Rated power | 2 W @ 70°C |
+| Temperature coefficient | 400 ppm/°C |
+| Bearing | Dual ball bearing (stainless steel shaft, aluminium alloy housing) |
+| Mechanical life | 50,000,000 revolutions |
+| Operating temperature | −55°C to +125°C |
+| ADC reading at vertical-down | ~1024 (12-bit, 0–4095 full range) |
+| ADC reading at vertical-up (balance point) | ~3100 (`ZHONGZHI = 3100` in firmware) |
+| Calibration target range | 1010–1030 (vertical down) |
+
+---
+
+### Linear encoder (cart position)
+
+The cart position is measured by the motor's own Hall encoder read via TIM4 in quadrature mode.
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| Encoder type | Hall effect, 2-channel quadrature | hardware |
+| Counts at left end (start position) | ~10000 | firmware constant |
+| Counts at right end | ~5850 | firmware constant |
+| Cart center position | 7925 (`POSITION_MIDDLE`) | `control.h` |
+| Usable travel range | 5900–9900 counts (edge protection) | `control.c` |
+| One full motor revolution | 1040 counts | `control.c` |
+
+---
+
+### Default PID parameters (firmware defaults)
+
+| Parameter | Default value | Physical meaning |
+|-----------|--------------|-----------------|
+| `Balance_KP` | 400 | Angle proportional gain |
+| `Balance_KD` | 400 | Angle derivative gain |
+| `Position_KP` | 20 | Position proportional gain |
+| `Position_KD` | 300 | Position derivative gain |
+| PWM limit | ±6900 / 7199 | ~96% duty cycle max |
+| Low-voltage cutoff | 700 (ADC units) | ~8.4 V |
+| Angle protection range | ZHONGZHI ± 500 = 2600–3600 | ~±87° from upright |
+
+---
+
+### Pendulum rod — physical parameters
+
+Uniform solid cylindrical rod, stainless steel (inox 304/316).
+
+| Parameter | Symbol | Value | Notes |
+|-----------|--------|-------|-------|
+| Length | L | 390 mm | Measured from pivot axis to tip |
+| Diameter | d | 6 mm | Circular cross-section |
+| Material | — | Stainless steel (inox) | ρ ≈ 7900 kg/m³ |
+| Volume | V | 11.03 cm³ | π·r²·L |
+| Mass | m | **87.1 g** | ρ·V (note: 800g is the full assembly including encoder/mount) |
+| Center of mass | l_c | 195 mm | L/2 from pivot (uniform rod assumption) |
+
+#### Rotational inertia
+
+| Parameter | Symbol | Value |
+|-----------|--------|-------|
+| Moment of inertia about pivot (end) | I | 4.417 × 10⁻³ kg·m² |
+| Moment of inertia about center of mass | I_cm | 1.104 × 10⁻³ kg·m² |
+| Gravitational torque term | m·g·l_c | 0.1666 N·m |
+
+#### Linearized dynamics (unstable equilibrium — upright)
+
+Eigenvalue of the uncontrolled pendulum: `λ = ±√(m·g·l_c / I)`
+
+| Parameter | Value |
+|-----------|-------|
+| ω² = m·g·l_c / I | 37.73 rad²/s² |
+| Unstable pole | ±6.14 rad/s |
+| Natural frequency | 0.978 Hz |
+| Pendulum period | 1.02 s |
+
+#### State-space model parameters (for LQR / MPC)
+
+```
+m  = 0.08711  kg     (rod mass)
+L  = 0.390    m      (rod length)
+l  = 0.1950   m      (distance pivot → CoM)
+I  = 0.004417 kg·m²  (inertia about pivot)
+g  = 9.81     m/s²
+```
+
+> ⚠️ These values assume a uniform solid rod. In practice, the pivot-end cap, encoder coupling, and end tip add mass asymmetrically — l_c and I should be verified experimentally if high-fidelity modelling is needed (hang test or frequency response identification).
