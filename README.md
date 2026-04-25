@@ -72,6 +72,19 @@ Before running any control algorithm, the angle sensor must be calibrated so tha
 
 The OLED screen shows live sensor readings during this process — ADC (angle), P (position), VOL (battery voltage).
 
+### Runtime mode and homing
+
+The firmware uses the reserved button on `PA0` for two functions:
+
+- Short press: toggle between `RUN` and `CAL`
+- Long press: start homing to the fixed right-wall reference
+
+In `CAL`, the motor output is disabled while telemetry and OLED updates remain active. Use this mode for open-loop checks, sign verification, and sensor calibration.
+
+Right-wall homing is a command to return to the fixed right-wall reference, not a free-form reference capture.
+
+The cart position is homed from the right wall. If the cart is at the right wall and the travel span is the full usable range, the midpoint is simply half that span. With the current encoder limits, the midpoint is approximately halfway between the right-wall home and the left limit.
+
 ---
 
 ## Getting started
@@ -84,7 +97,14 @@ The OLED screen shows live sensor readings during this process — ADC (angle), 
 1. Clone this repo
 2. Build firmware: `pio run`
 3. Upload firmware: `pio run -t upload`
-4. Edit your control algorithm in `lib/show/src/control.c`
+4. Edit the control algorithm in `src/main.c`
+
+### Button map
+
+- `User_key` on `PA5`: emergency start/stop behavior in the current firmware flow
+- `menu_key` on `PA7`: set angle zero
+- `reserved_key` on `PA0`: short press toggles `RUN/CAL`, long press starts homing to the fixed right-wall reference
+- `pid_plus` / `pid_reduce`: manual jog / torque trim during open-loop checks when enabled
 
 ### Phase 2 Serial Link Test (PC <-> STM32)
 

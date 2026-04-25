@@ -9,47 +9,52 @@
 
 ### Measurements
 
-Nominal encoder window: 0..10000
-
-LEFT (690) -> START/END (0->10000) -> RIGHT (6570)
-
 | Parameter | Value | Unit |
 |-----------|-------|------|
-| **LEFT WALL Position** | 690 | encoder pulses |
-| **RIGHT WALL Position** | 6570 | encoder pulses |
-| **Usable Travel Range** | 4120 | encoder pulses |
+| **LEFT WALL Position** | 4040 | encoder pulses |
+| **RIGHT WALL Position** | 0 | encoder pulses |
+| **Usable Travel Range** | 4040 | encoder pulses |
 
 ### Test Procedure
 
-The encoder is treated as a **bounded travel span with wrap at 0**.
-For the current sign convention, the usable span is counted from right to left by increasing through wraparound: 6570 -> 0 -> 690 = 4120 pulses.
+The encoder is treated as a **relative position from the right-wall home reference**.
+In the current setup, the reserved button is used to command a return to the fixed right-wall home before closed-loop testing.
+
+### Homing Procedure
+
+1. Drive the cart to the right wall.
+2. Hold the reserved button to command the cart back to the fixed right-wall home.
+3. Verify on OLED that the state shows homing while the cart is moving back.
+4. The cart will stop automatically when it reaches the home threshold.
 
 1. **LEFT Phase**:
    - Motor runs at 50% PWM toward left wall
    - Collision detection: encoder stable for 3 readings (~900ms) = stops
-   - Captures: 690 pulses
+   - Captures: 4040 pulses
 
 2. **RIGHT Phase**:
    - Motor continues from left position, reverses direction
    - Runs toward right wall at 50% PWM
    - Collision detection: encoder stable for 3 readings = stops
-   - Captures: 6570 pulses
+   - Captures: 0 pulses
 
 ### Key Findings
 
-- Motor successfully spans **4120 encoder pulses** in the currently used counting direction
-- Encoder should be treated as a bounded span with wraparound at 0 for position counting
+- Motor spans **4040 encoder pulses** from right wall to left wall in the current convention
+- Encoder should be treated as relative-per-home data, with right wall as the home reference in this measurement setup
 - Collision detection via stability counting works reliably
 - No issues with motor reversing or direction control
 
 ### Next Steps
 
 1. **Calibration**: Measure wall-to-wall distance (meters) to get conversion factor
-   - **Conversion**: [distance in meters] / 4120 pulses = meters/pulse
+   - **Conversion**: [distance in meters] / 4040 pulses = meters/pulse
 
-2. **Dead-zone Testing**: Determine minimum PWM needed for motor to start moving
+2. **Control Workflow**: Use the reserved button to toggle `RUN/CAL` and store the right-wall home before swing-up tests
 
-3. **LQR Controller Design**: Use travel range for state boundaries and control limits
+3. **Dead-zone Testing**: Determine minimum PWM needed for motor to start moving
+
+4. **LQR Controller Design**: Use travel range for state boundaries and control limits
 
 ---
 

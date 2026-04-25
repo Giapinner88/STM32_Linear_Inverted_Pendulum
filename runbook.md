@@ -10,6 +10,7 @@ Muc tieu: test nhanh, an toan, lap lai duoc. Sau khi pass runbook nay se chuyen 
 - Kiem tra nut:
   - USER: RUN/STOP
   - M: SET ZERO
+  - reserved: short press RUN/CAL, long press homing ve moc tuong phai co dinh
   - + / -: trim manual torque khi chua lock upright
 - Build va upload:
   - `~/.platformio/penv/bin/pio run -t upload`
@@ -17,7 +18,7 @@ Muc tieu: test nhanh, an toan, lap lai duoc. Sau khi pass runbook nay se chuyen 
 ## 2. Boot sanity check
 
 - Sau reset, LED phai nhay boot pattern.
-- OLED hien man hinh swing-up status.
+- OLED hien `CAL` neu firmware dang o che do calibration, hoac `RUN` neu da vao che do chay.
 - Neu OLED trang hoac treo: dung test, kiem tra cap nguon/OLED wiring truoc.
 
 ## 3. Zero calibration (bat buoc)
@@ -29,46 +30,58 @@ Muc tieu: test nhanh, an toan, lap lai duoc. Sau khi pass runbook nay se chuyen 
   - Trang thai `OK` (neu firmware dang hien thi `OK/ER`).
 - Neu `ER`: tiep tuc xoay ve dung cua so roi bam M lai.
 
-## 4. Chay swing-up
+## 4. Home tuong phai
 
-- Bam USER de chuyen RUN (`R=1`).
-- Khi chua lock upright (`C=0`), dung nut `+/-` de trim `MU` (manual torque) nham test huong dong co, encoder va truyen thong command.
+- Nhan giu `reserved_key` de ra lenh homing ve tuong phai.
+- Xac nhan tren OLED: trang thai `HOM` hien thi khi dang chay ve home.
+- Khi toi moc, xe tu dung va quay ve trang thai chay/stop tuong ung.
+
+## 5. Chay swing-up
+
+- Bam nut `reserved_key` de chuyen sang `RUN`.
+- Khi dang `CAL`, motor luon bi tat PWM; chi dung de kiem tra telemetry, OLED va dau am/duong.
+- Khi chua lock upright (`C=0`), dung nut `+/-` de trim torque nham test huong dong co, encoder va truyen thong command.
 - Quan sat:
   - `U%` thay doi theo chuyen dong, khong dung cung mot gia tri.
-  - `MU` thay doi khi bam `+/-`.
+  - `X` di chuyen quanh moc home tuong phai.
   - `RL=1` nghia la dang bi chan mem cuoi hanh trinh (soft rail guard), firmware se cat torque.
   - Con lac dao dong va tang bien do dan.
   - Khi gan dinh, co vao pha capture (`C=1`) neu du dieu kien.
 
-## 5. Dung khan cap va an toan
+## 6. Dung khan cap va an toan
 
 - Bam USER bat ky luc nao de ve STOP (`R=0`).
 - Neu xe lao sat ray, dung ngay bang USER.
 - Moi lan doi tham so lon, dat xe ve giua ray truoc khi RUN lai.
+- Neu can reset moc home, dua xe cham tuong phai va nhan giu `reserved_key` lai.
 
-## 6. Checklist pass cho giai doan hien tai
+## 7. Checklist pass cho giai doan hien tai
 
 - [ ] Zero set on dinh trong cua so 1010-1030
-- [ ] USER RUN/STOP phan hoi dung
+- [ ] reserved_key chuyen dung giua RUN/CAL
+- [ ] Home tuong phai cap nhat dung
 - [ ] U% khong bang-bang cung mot muc co dinh
 - [ ] Con lac swing duoc qua lai co kiem soat
 - [ ] Khong lao ray lap lai do loi logic
 
-## 7. Logging toi thieu moi lan test
+## 8. Logging toi thieu moi lan test
 
 Ghi vao DEBUG_LOG.md:
 - Timestamp
 - Z (ADC zero)
+- Trang thai RUN/CAL
+- Gia tri HM (right-wall home)
 - Hanh vi U% (muot / giat)
 - Co vao capture khong
 - Ly do stop (thu cong / sat ray / mat on dinh)
 - Tham so da doi (neu co)
 
-## 8. Chuyen tiep sang Energy Shaping + LQR
+## 9. Chuyen tiep sang Energy Shaping + LQR
 
 Tien dieu kien:
 - Sensor angle on dinh, zero calibration lap lai duoc.
-- RUN/STOP tin cay.
+- RUN/CAL tin cay.
+- Homing tuong phai lap lai duoc.
 - Swing-up thuan co huong dung, khong rail lock.
 
 Ke hoach ngay sau runbook:

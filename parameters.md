@@ -21,7 +21,7 @@
 
 | Ký hiệu | Mô tả | Giá trị | Đơn vị | Nguồn |
 |:-------:|-------|--------:|:------:|-------|
-| $M_c$ | Khối lượng xe (cart + motor + board) | 0.10 | kg | Tạm đặt để tune swing-up |
+| $M_c$ | Khối lượng xe (cart + motor + board) | 0.10 | kg | Placeholder currently used in firmware |
 
 ---
 

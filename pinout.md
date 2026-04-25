@@ -45,7 +45,7 @@ All buttons are active-low with internal pull-up. Debounce: 5 ms delay in ISR.
 | PA2  | `menu_key`   | EXTI2  (EXTI2_IRQn)     | User key **X1** | Single click: set angle zero |
 | PA11 | `pid_plus`   | EXTI11 (EXTI15_10_IRQn) | Back of board, labelled **+**   | Increase selected PID parameter by its amplitude step |
 | PA12 | `pid_reduce` | EXTI12 (EXTI15_10_IRQn) | Back of board, labelled **−**   | Decrease selected PID parameter by its amplitude step |
-| PA0  | `reserved_key` | — (GPIO input, pull-up) | Reserved interface J3 | Reserved / not used in current control loop |
+| PA0  | `reserved_key` | — (GPIO input, pull-up) | Reserved interface J3 | Short press: toggle RUN/CAL, long press: home back to the fixed right-wall reference |
 
 > Note: Current firmware polls button states in the control loop; EXTI is configured for compatibility.
 
