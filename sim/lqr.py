@@ -8,9 +8,9 @@ from matplotlib.animation import FuncAnimation
 # ==========================================
 # 1. THÔNG SỐ VẬT LÝ
 # ==========================================
-M = 0.100       
+M = 0.26       
 m = 0.04467     
-l = 0.200       
+l = 0.100       
 J = 5.96e-4     
 g = 9.81        
 dt = 0.005      
@@ -63,7 +63,7 @@ def rk4_step(state, F, dt):
 # 4. CHẠY MÔ PHỎNG VỚI HYBRID CONTROL
 # ==========================================
 # Khởi tạo: Con lắc buông thõng xuống đất (pi rad)
-state = np.array([0.0, 0.0, math.pi, 0.0])  
+state = np.array([0.0, 0.0, math.pi-0.01, 0.0])  
 
 history_t, history_x, history_theta, history_F = [], [], [], []
 mode_history = [] # Lưu trạng thái bộ điều khiển
@@ -148,11 +148,13 @@ ax_ani.axhline(0, color='black', lw=2)
 cart_w, cart_h = 0.08, 0.04
 cart_patch = plt.Rectangle((0, 0), cart_w, cart_h, fc='#3498db', ec='black')
 ax_ani.add_patch(cart_patch)
-rod_line, = ax_ani.plot([], [], lw=4, color='#e74c3c')
+rod_line, = ax_ani.plot([], [], lw=4, color='#FF5555')
+bob_circle = plt.Circle((0, 0), 0.02, fc='#FF5555', ec='#CC0000', lw=2)
+ax_ani.add_patch(bob_circle)
 title_text = ax_ani.text(-0.9, 0.5, '', fontsize=12, weight='bold')
 
 def init():
-    return cart_patch, rod_line, title_text
+    return cart_patch, rod_line, bob_circle, title_text
 
 # Cứ mỗi frame nhảy 4 step để animation chạy thực tế hơn (tăng tốc độ hiển thị)
 frame_skip = 4 
@@ -171,11 +173,12 @@ def update(frame):
     py = cy + rod_len * math.cos(theta)
     
     rod_line.set_data([cx, px], [cy, py])
+    bob_circle.set_center((px, py))
     
     mode = "LQR Catching" if mode_history[idx] == 1 else "Energy Swing-up"
     title_text.set_text(f"Mode: {mode}\nTime: {history_t[idx]:.2f}s")
     
-    return cart_patch, rod_line, title_text
+    return cart_patch, rod_line, bob_circle, title_text
 
 ani = FuncAnimation(fig_ani, update, frames=len(history_t)//frame_skip, init_func=init, interval=dt*1000*frame_skip, blit=True)
 
